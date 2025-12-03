@@ -255,3 +255,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Trigger para evitar cambio de rol por usuarios no admin
+CREATE OR REPLACE FUNCTION prevent_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role <> OLD.role THEN
+    RAISE EXCEPTION 'No puedes cambiar el rol tú mismo.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER block_role_edit
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+WHEN (auth.uid() = OLD.user_id)
+EXECUTE FUNCTION prevent_role_change();
