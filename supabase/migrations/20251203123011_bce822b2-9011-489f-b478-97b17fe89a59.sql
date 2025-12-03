@@ -196,7 +196,10 @@ CREATE POLICY "Teachers can delete their availability" ON public.teacher_availab
 CREATE POLICY "Users can view their own sessions" ON public.sessions FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.profiles WHERE (id = student_id OR id = teacher_id) AND user_id = auth.uid())
 );
-CREATE POLICY "Authenticated users can create sessions" ON public.sessions FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Students can create sessions for themselves only" ON public.sessions
+FOR INSERT WITH CHECK (
+  student_id = (SELECT id FROM public.profiles WHERE user_id = auth.uid())
+);
 CREATE POLICY "Participants can update sessions" ON public.sessions FOR UPDATE USING (
   EXISTS (SELECT 1 FROM public.profiles WHERE (id = student_id OR id = teacher_id) AND user_id = auth.uid())
 );
@@ -243,7 +246,7 @@ BEGIN
   INSERT INTO public.profiles (user_id, role, full_name, avatar_url)
   VALUES (
     NEW.id,
-    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'student'),
+       'student',
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     NEW.raw_user_meta_data->>'avatar_url'
   );
