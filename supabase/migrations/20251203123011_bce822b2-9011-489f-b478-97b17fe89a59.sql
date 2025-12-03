@@ -164,8 +164,9 @@ ALTER TABLE public.app_stats ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view profiles" ON public.profiles
 FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
-
+CREATE POLICY "Users can update their own profile info but not role" ON public.profiles
+FOR UPDATE USING (auth.uid() = user_id)
+WITH CHECK (role = OLD.role);
 -- RLS Policies for subjects and topics (public read)
 CREATE POLICY "Subjects are viewable by everyone" ON public.subjects FOR SELECT USING (true);
 CREATE POLICY "Topics are viewable by everyone" ON public.topics FOR SELECT USING (true);
