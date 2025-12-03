@@ -161,7 +161,8 @@ ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_stats ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can view profiles" ON public.profiles
+FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
 
@@ -200,7 +201,8 @@ CREATE POLICY "Participants can update sessions" ON public.sessions FOR UPDATE U
 );
 
 -- RLS Policies for ratings
-CREATE POLICY "Ratings are viewable by everyone" ON public.ratings FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can view ratings" ON public.ratings
+FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Students can rate their sessions" ON public.ratings FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM public.profiles WHERE id = student_id AND user_id = auth.uid())
 );
