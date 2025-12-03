@@ -1,3 +1,6 @@
+-- Habilita generación de uuid aleatorio (obligatorio para gen_random_uuid)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Create enum for user roles
 CREATE TYPE public.user_role AS ENUM ('student', 'teacher');
 
@@ -86,6 +89,7 @@ CREATE TABLE public.app_stats (
   average_rating DECIMAL(3,2) DEFAULT 0,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+ALTER TABLE public.app_stats ADD CONSTRAINT single_row CHECK ((SELECT COUNT(*) FROM public.app_stats) <= 1);
 
 -- Insert initial app stats
 INSERT INTO public.app_stats (total_sessions, average_rating) VALUES (0, 0);
@@ -233,7 +237,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Triggers to update app stats
 CREATE TRIGGER on_session_complete
 AFTER INSERT OR UPDATE ON public.sessions
-FOR EACH ROW EXECUTE FUNCTION public.update_app_stats();
+FOR EACH ROW
+WHEN (NEW.status = 'completed' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status))
+EXECUTE FUNCTION public.update_app_stats();
 
 CREATE TRIGGER on_rating_added
 AFTER INSERT ON public.ratings
@@ -260,18 +266,18 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Trigger para evitar cambio de rol por usuarios no admin
-CREATE OR REPLACE FUNCTION prevent_role_change()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.role <> OLD.role THEN
-    RAISE EXCEPTION 'No puedes cambiar el rol tú mismo.';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+--CREATE OR REPLACE FUNCTION prevent_role_change()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--  IF NEW.role <> OLD.role THEN
+--    RAISE EXCEPTION 'No puedes cambiar el rol tú mismo.';
+--  END IF;
+--  RETURN NEW;
+--END;
+--$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER block_role_edit
-BEFORE UPDATE ON public.profiles
-FOR EACH ROW
-WHEN (auth.uid() = OLD.user_id)
-EXECUTE FUNCTION prevent_role_change();
+--CREATE TRIGGER block_role_edit
+--BEFORE UPDATE ON public.profiles
+--FOR EACH ROW
+--WHEN (auth.uid() = OLD.user_id)
+--EXECUTE FUNCTION prevent_role_change();
