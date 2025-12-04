@@ -52,8 +52,8 @@ const TeacherDashboard = () => {
   
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedTopic, setSelectedTopic] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggleLoading, setToggleLoading] = useState(false);
@@ -124,7 +124,7 @@ const TeacherDashboard = () => {
     if (data) {
       setIsAvailable(data.is_available);
       setSelectedSubject(data.subject_id);
-      if (data.topic_id) setSelectedTopic(data.topic_id);
+      if (data.topic_id) setSelectedTopic(data.topic_id || null);
     }
   };
 
@@ -305,7 +305,7 @@ const TeacherDashboard = () => {
                   value={selectedSubject} 
                   onValueChange={(value) => {
                     setSelectedSubject(value);
-                    setSelectedTopic('');
+                    setSelectedTopic(null);
                   }}
                   disabled={isAvailable}
                 >
@@ -330,15 +330,18 @@ const TeacherDashboard = () => {
                     Tema específico (opcional)
                   </label>
                   <Select 
-                    value={selectedTopic} 
-                    onValueChange={setSelectedTopic}
+                    value={selectedTopic} ?? "any"} 
+                    onValueChange={(value) => {
+                  if (value === "any") setSelectedTopic(null)
+        else setSelectedTopic(value)
+      }}
                     disabled={isAvailable}
                   >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Cualquier tema" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Cualquier tema</SelectItem>
+                      <SelectItem value="any">Cualquier tema</SelectItem>
                       {topics.map((topic) => (
                         <SelectItem key={topic.id} value={topic.id}>
                           {topic.name}
