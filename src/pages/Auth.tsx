@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, User } from "lucide-react";
+import { Loader2, Mail, Lock, User, GraduationCap, BookOpen } from "lucide-react";
 import { z } from "zod";
 
 const authSchema = z.object({
@@ -16,7 +16,7 @@ const authSchema = z.object({
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
-  const role = searchParams.get("role") || "student";
+  const initialRole = searchParams.get("role") || "student";
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -24,6 +24,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"student" | "teacher">(initialRole as "student" | "teacher");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
 
@@ -109,7 +110,7 @@ export default function Auth() {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
-              // Note: role is NOT passed here - handle_new_user always sets 'student'
+              role: selectedRole,
             },
           },
         });
@@ -131,7 +132,7 @@ export default function Auth() {
         } else {
           toast({
             title: "¡Cuenta creada!",
-            description: "Tu cuenta ha sido creada. Ya puedes iniciar sesión.",
+            description: `Tu cuenta de ${selectedRole === 'teacher' ? 'profesor' : 'estudiante'} ha sido creada.`,
           });
           navigate("/dashboard");
         }
@@ -158,31 +159,66 @@ export default function Auth() {
             <p className="text-muted-foreground">
               {isLogin 
                 ? "Ingresa tus credenciales para continuar" 
-                : `Regístrate como ${role === "teacher" ? "profesor" : "estudiante"}`
+                : "Selecciona tu rol y regístrate"
               }
             </p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nombre completo</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="Tu nombre"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="pl-10"
-                    disabled={loading}
-                  />
+              <>
+                {/* Role Selection */}
+                <div className="space-y-2">
+                  <Label>Tipo de cuenta</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRole("student")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        selectedRole === "student"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background hover:border-primary/50"
+                      }`}
+                      disabled={loading}
+                    >
+                      <GraduationCap className="h-6 w-6" />
+                      <span className="text-sm font-medium">Estudiante</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRole("teacher")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        selectedRole === "teacher"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background hover:border-primary/50"
+                      }`}
+                      disabled={loading}
+                    >
+                      <BookOpen className="h-6 w-6" />
+                      <span className="text-sm font-medium">Profesor</span>
+                    </button>
+                  </div>
                 </div>
-                {errors.fullName && (
-                  <p className="text-sm text-destructive">{errors.fullName}</p>
-                )}
-              </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Nombre completo</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Tu nombre"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="pl-10"
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.fullName && (
+                    <p className="text-sm text-destructive">{errors.fullName}</p>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
