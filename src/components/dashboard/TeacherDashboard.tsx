@@ -330,11 +330,11 @@ const TeacherDashboard = () => {
                     Tema específico (opcional)
                   </label>
                   <Select 
-                    value={selectedTopic} ?? "any"} 
+                    value={selectedTopic ?? "any"} 
                     onValueChange={(value) => {
-                  if (value === "any") setSelectedTopic(null)
-        else setSelectedTopic(value)
-      }}
+                      if (value === "any") setSelectedTopic(null);
+                      else setSelectedTopic(value);
+                    }}
                     disabled={isAvailable}
                   >
                     <SelectTrigger className="h-12">
