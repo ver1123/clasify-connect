@@ -132,7 +132,7 @@ export default function Auth() {
         } else {
           toast({
             title: "¡Cuenta creada!",
-            description: Tu cuenta de ${selectedRole === 'teacher' ? 'profesor' : 'estudiante'} ha sido creada.,
+            description: `Tu cuenta de ${selectedRole === "teacher" ? "profesor" : "estudiante"} ha sido creada.`,
           });
           navigate("/dashboard");
         }
