@@ -107,7 +107,7 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: ${window.location.origin}/dashboard,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
               role: selectedRole,
