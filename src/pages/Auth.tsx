@@ -8,11 +8,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, User, GraduationCap, BookOpen } from "lucide-react";
 import { z } from "zod";
 
-const authSchema = z.object({
+/* ------------------------- VALIDACIÓN ------------------------- */
+
+const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres").optional(),
 });
+
+const signupSchema = loginSchema.extend({
+  fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+});
+
+/* -------------------------------------------------------------- */
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -24,129 +31,133 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"student" | "teacher">(initialRole as "student" | "teacher");
+  const [selectedRole, setSelectedRole] = useState<"student" | "teacher">(
+    initialRole as "student" | "teacher"
+  );
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
 
+  /* ------------------------- SESSION LISTENER ------------------------- */
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/dashboard");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) navigate("/dashboard");
       }
-    });
+    );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
-      }
+      if (session) navigate("/dashboard");
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe(); // fixed
+    };
   }, [navigate]);
+
+  /* ------------------------- VALIDACIÓN FORM ------------------------- */
 
   const validateForm = () => {
     try {
-      authSchema.parse({
-        email,
-        password,
-        fullName: isLogin ? undefined : fullName,
-      });
+      if (isLogin) {
+        loginSchema.parse({ email, password });
+      } else {
+        signupSchema.parse({ email, password, fullName });
+      }
       setErrors({});
       return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: { email?: string; password?: string; fullName?: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as keyof typeof fieldErrors] = err.message;
-          }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        const formErrors: any = {};
+        err.errors.forEach((e) => {
+          formErrors[e.path[0]] = e.message;
         });
-        setErrors(fieldErrors);
+        setErrors(formErrors);
       }
       return false;
     }
   };
 
+  /* ------------------------- AUTH HANDLER ------------------------- */
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
+
     setLoading(true);
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        /* ------------------ LOGIN ------------------ */
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              variant: "destructive",
-              title: "Error de inicio de sesión",
-              description: "Email o contraseña incorrectos.",
-            });
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: error.message,
-            });
-          }
-        } else {
           toast({
-            title: "¡Bienvenido!",
-            description: "Has iniciado sesión correctamente.",
+            variant: "destructive",
+            title: "Error de inicio de sesión",
+            description: "Email o contraseña incorrectos.",
           });
-          navigate("/dashboard");
+          return;
         }
+
+        toast({
+          title: "Bienvenido",
+          description: "Has iniciado sesión correctamente.",
+        });
+
+        navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
+        /* ------------------ SIGNUP ------------------ */
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
               role: selectedRole,
             },
+            emailRedirectTo: ${window.location.origin}/dashboard,
           },
         });
 
         if (error) {
-          if (error.message.includes("User already registered")) {
-            toast({
-              variant: "destructive",
-              title: "Usuario existente",
-              description: "Este email ya está registrado. Intenta iniciar sesión.",
-            });
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: error.message,
-            });
-          }
-        } else {
           toast({
-            title: "¡Cuenta creada!",
-            description: `Tu cuenta de ${selectedRole === 'teacher' ? 'profesor' : 'estudiante'} ha sido creada.`,
+            variant: "destructive",
+            title: "Error al crear cuenta",
+            description: error.message,
           });
-          navigate("/dashboard");
+          return;
         }
+
+        // Si Supabase requiere verificación por email, no existirá sesión inmediata
+        if (!data.session) {
+          toast({
+            title: "Cuenta creada",
+            description: "Revisa tu correo para confirmar tu cuenta.",
+          });
+          return;
+        }
+
+        toast({
+          title: "Cuenta creada",
+          description: Tu cuenta de ${selectedRole === "teacher" ? "profesor" : "estudiante"} ha sido creada.,
+        });
+
+        navigate("/dashboard");
       }
-    } catch (error) {
+    } catch (err) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Ocurrió un error inesperado. Intenta de nuevo.",
+        title: "Error inesperado",
+        description: "Algo salió mal. Intenta de nuevo.",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  /* ------------------------- UI ------------------------- */
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -157,10 +168,7 @@ export default function Auth() {
               {isLogin ? "Iniciar sesión" : "Crear cuenta"}
             </h1>
             <p className="text-muted-foreground">
-              {isLogin 
-                ? "Ingresa tus credenciales para continuar" 
-                : "Selecciona tu rol y regístrate"
-              }
+              {isLogin ? "Ingresa tus credenciales para continuar" : "Selecciona tu rol y regístrate"}
             </p>
           </div>
 
@@ -184,6 +192,7 @@ export default function Auth() {
                       <GraduationCap className="h-6 w-6" />
                       <span className="text-sm font-medium">Estudiante</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => setSelectedRole("teacher")}
@@ -200,6 +209,7 @@ export default function Auth() {
                   </div>
                 </div>
 
+                {/* Nombre completo */}
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Nombre completo</Label>
                   <div className="relative">
@@ -214,13 +224,12 @@ export default function Auth() {
                       disabled={loading}
                     />
                   </div>
-                  {errors.fullName && (
-                    <p className="text-sm text-destructive">{errors.fullName}</p>
-                  )}
+                  {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
                 </div>
               </>
             )}
 
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -235,11 +244,10 @@ export default function Auth() {
                   disabled={loading}
                 />
               </div>
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
-              )}
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
+            {/* Contraseña */}
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
@@ -254,9 +262,7 @@ export default function Auth() {
                   disabled={loading}
                 />
               </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
+              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
@@ -265,8 +271,10 @@ export default function Auth() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {isLogin ? "Iniciando sesión..." : "Creando cuenta..."}
                 </>
+              ) : isLogin ? (
+                "Iniciar sesión"
               ) : (
-                isLogin ? "Iniciar sesión" : "Crear cuenta"
+                "Crear cuenta"
               )}
             </Button>
           </form>
@@ -278,10 +286,7 @@ export default function Auth() {
               className="text-sm text-primary hover:underline"
               disabled={loading}
             >
-              {isLogin 
-                ? "¿No tienes cuenta? Regístrate" 
-                : "¿Ya tienes cuenta? Inicia sesión"
-              }
+              {isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
             </button>
           </div>
         </div>
